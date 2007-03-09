@@ -1,0 +1,263 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use 5.008;
+
+use Sash::Terminal;
+use Sash::Plugin::Factory;
+
+use Getopt::Long;
+
+our $VERSION = '1.0';
+
+#my $_client;
+my $_username;
+my $_password;
+my $_endpoint;
+my $_client;
+my $_filename;
+my $_interactive;
+#my $_vendor;
+#my $_database;
+#my $_hostname;
+my $_help;
+my $_usage_str = <<EOF;
+sash [-u username] [-p] [-e endpoint]
+
+If you do not provide your username or password on the command line you will
+be prompted for it.
+EOF
+
+# Lets get the command line values first
+GetOptions (
+    'u|user=s' => \$_username,
+    'p|password=s' => \$_password,
+    'e|endpoint=s' => \$_endpoint,
+    'client=s' => \$_client,
+    'f|filename=s' => \$_filename,
+    'i|interactive=s' => \$_interactive,
+    #'v|vendor=s' => \$_vendor,
+    #'d|database=s' => \$_database,
+    #'n|hostname=s' => \$_hostname,
+    'h|help' => \$_help,
+);
+
+# Simple enough if they only asked for help.
+if ( $_help ) {
+    print $_usage_str;
+    exit;
+}
+
+# Create the terminal interface
+my $terminal = Sash::Terminal->new;
+
+# Command line takes precedence over the environment definitions
+$_username = $ENV{SASH_USERNAME} unless defined $_username;
+$_password = $ENV{SASH_PASSWORD} unless defined $_password;
+$_endpoint = $ENV{SASH_ENDPOINT} unless defined $_endpoint;
+$_client = $ENV{SASH_CLIENT} unless defined $_client;
+
+# Make sure we the essentials if not from the command line.
+$_username = $terminal->prompt_for( 'username' ) unless $_username;
+$_password = $terminal->prompt_for( 'password', 1 ) unless $_password;
+$_endpoint = $terminal->prompt_for( 'endpoint' ) unless $_endpoint;
+
+# Did I invoke myself correctly or ask for simple help?
+die $_usage_str unless $_username && $_endpoint; #( $_endpoint || $_vendor);
+
+# Note this call returns the name of the plugin class
+my $plugin_class = Sash::Plugin::Factory->get_class( {
+    username => $_username,
+    password => $_password,
+    endpoint => $_endpoint,
+    terminal => $terminal,
+    client => $_client,
+    # Or instead of endpoint supply the following
+    # vendor => $_vendor,
+    # database => $_database,
+    # hostname => $_hostname,
+} );
+
+# Being the user interaction with the UI.
+print <<EOF;
+Connection to $_endpoint established!
+
+Welcome to sash.  Commands end with the familiar ; or press 'return'.
+Type 'help' for the complete command reference.
+EOF
+
+# Initiate the terminal and get it ready for liftoff.
+$terminal->commands( "${plugin_class}::Command"->get_command_hash );
+
+# Did the user give a file to run?
+if ( defined $_filename ) {
+    open my $fh, "<$_filename";
+    my $script = join "\n", <$fh>;
+    close $fh;
+    
+    my $args = { rawline => $script };
+    Sash::Properties->output( Sash::Properties->perlval );
+    
+    eval {
+        Sash::Command->default_command( $terminal, $args );
+    }; if ( $@ ) {
+        print "Your script did not run successfully:\n$@\n";
+    }
+    
+    exit 0 unless defined $_interactive;
+
+    Sash::Properties->output( Sash::Properties->tabular );
+}
+
+$terminal->run;
+
+=head1 NAME
+
+sash - Sweet Ass Shell
+
+=head1 VERSION
+
+This documentation refers to version 1.0
+
+=head1 DESCRIPTION
+
+This tool is a shell to some common data sources.  It was inspired by the many
+character based database tools so that I could work with the Salesforce.com API in
+the same manner.  I simply wanted a CUI that worked on all of the different machines
+that I work on including my ssh sessions.
+
+After building the tool to behave similarly to the mysql client I rewrote it so
+that it supported a Plugin API.  Now in principle it can be used to communicate
+with any data source as long as a plugin has been written for it.  See the L</PLUGINS>
+section for a list of known plugins that you can download and start using. You can
+also search L<http://search.cpan.org> for plugins as well in case the documentation
+here isn't up to date.
+
+In addition to installing plugins that can be used with I<sash>, you can also easily
+develop them.  The L</DEVELOPMENT> section covers the steps necessary to develop your
+own plugin for I<sash> so you that you can extend its functionality and give back
+to the community.
+
+=head1 COMMANDS
+
+There are several built-in commands that you can type in from the command line
+in addition to the ones defined by the plugin you are using.  The table below
+provides definitions of the commands.  For commands with an alias defined you
+can type the alias instead of the full command name.  It saves some keystrokes.
+
+=head2 clear [alias: c]
+
+Clears and resets the editable command buffer.
+
+=head2 edit [alias: e]
+
+Brings the current command buffer into your favorite editor as defined by your
+EDITOR environment variable.
+
+=head2 history [alias: h]
+
+Shows the current command history.  Its a known bug of another modules L</Term::ShellUI>
+that the command history appears to be doubled up.  Its also a known bug that the bang
+syntax does NOT work.
+
+=head2 list [alias: l]
+
+List the currenct command buffer.
+
+=head2 quit [alias: q|exit]
+
+Disconnect from the datasource and exit your sash session.
+
+=head2 reconnect
+
+Attempt to re-establish a connection to the data source.  This is useful for API based
+plugins where server based valiad sessions tend to expire quite rapidly.
+
+=head2 result
+
+Describe the concept of a result here.
+
+Table of sub-commands is listed below with their descriptions:
+
+=head3 all
+
+This displays all of the results that have been obtained and manipulated for the last
+executed command.
+
+=head3 limit [value]
+
+Limit the number of records displayed in the current result set to the defined value.
+This is commonly done after a L</result:sort> command.  
+
+=head3 redo
+
+=head3 revert
+
+=head3 search
+
+=head3 sort [attribute] [asc|desc]
+
+=head3 undo
+
+=head2 set
+
+=head3 output [tabular|vertical|perlval]
+
+=head2 x
+
+Use this command to introspect a defined variable.  This is similar to the x command
+in the perl debugger but it provides a different type of synopsis of the value as 
+provided by L</Data::Dumper>.
+
+=head1 PLUGINS
+
+=head2 Sash::Plugin::Salesforce
+
+This plugin is for use with the Salesforce.com API or Apex API as it is presently
+called.  You must have a valid Salesforce.com account before you can use it.  Writing
+SOQL queries and viewing their results served as the birthpoint for I<sash>.
+
+=head2 Sash::Plugin::VerticalResponse
+
+This plugin is for use with the VerticalResponse API L<http://www.verticalresponse.com/services/api>.
+
+=head1 DEVELOPMENT
+
+This section documents the steps that are necessary to create a plugin for I<sash>.
+
+=head1 AUTHOR
+
+Wes Bailey, <wes@verticalresponse.com>
+
+=head1 BUGS
+
+When you find a bug in this plugin please contact the author.
+
+=head1 DEPENDENCIES
+
+I<sash> is really possible because of these fine modules available on cpan:
+
+=over 4
+
+=item * Term::ShellUI 0.85 L<http://search.cpan.org/~bronson/Term-ShellUI-0.85/lib/Term/ShellUI.pm>
+
+=item * Data::Table 1.50 L<http://search.cpan.org/~ezdb/Data-Table-1.50/Table.pm>
+
+=item * Text::ASCIITable 0.18 L<http://search.cpan.org/~lunatic/Text-ASCIITable-0.18/lib/Text/ASCIITable.pm>
+
+=item * Term::ReadKey 2.30 L<http://search.cpan.org/~jstowe/TermReadKey-2.30/ReadKey.pm>
+
+=item * Time::HiRes 1.86 L<http://search.cpan.org/~jhi/Time-HiRes-1.9707/HiRes.pm>
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007, Wesley H. Bailey, VerticalResponse Inc.
+
+This program is free software.  You may copy or redistribute it under the same
+terms as Perl itself.
+
+=cut
+
