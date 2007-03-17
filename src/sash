@@ -9,7 +9,7 @@ use Sash::Plugin::Factory;
 
 use Getopt::Long;
 
-our $VERSION = '1.0';
+our $VERSION = '1.01';
 
 #my $_client;
 my $_username;
@@ -118,7 +118,7 @@ sash - Sweet Ass Shell
 
 =head1 VERSION
 
-This documentation refers to version 1.0
+This documentation refers to version 1.01
 
 =head1 DESCRIPTION
 
@@ -131,8 +131,8 @@ After building the tool to behave similarly to the mysql client I rewrote it so
 that it supported a Plugin API.  Now in principle it can be used to communicate
 with any data source as long as a plugin has been written for it.  See the L</PLUGINS>
 section for a list of known plugins that you can download and start using. You can
-also search L<http://search.cpan.org> for plugins as well in case the documentation
-here isn't up to date.
+also search L<http://search.cpan.org/?query=sash&mode=all> for plugins as well in case
+the documentation here isn't up to date.
 
 In addition to installing plugins that can be used with I<sash>, you can also easily
 develop them.  The L</DEVELOPMENT> section covers the steps necessary to develop your
@@ -146,63 +146,117 @@ in addition to the ones defined by the plugin you are using.  The table below
 provides definitions of the commands.  For commands with an alias defined you
 can type the alias instead of the full command name.  It saves some keystrokes.
 
-=head2 clear [alias: c]
+=head2 clear
+
+I<alias:> c
 
 Clears and resets the editable command buffer.
 
-=head2 edit [alias: e]
+=head2 edit
+
+I<alias:> e
 
 Brings the current command buffer into your favorite editor as defined by your
 EDITOR environment variable.
 
-=head2 history [alias: h]
+=head2 history
 
-Shows the current command history.  Its a known bug of another modules L</Term::ShellUI>
+I<alias:> h
+
+Shows the current command history.  Its a known bug of another module's L<Term::ShellUI>
 that the command history appears to be doubled up.  Its also a known bug that the bang
-syntax does NOT work.
+syntax does NOT work to invoke a previous command.
 
-=head2 list [alias: l]
+=head2 list
 
-List the currenct command buffer.
+I<alias:> l
 
-=head2 quit [alias: q|exit]
+List the current command buffer.
+
+=head2 quit
+
+I<alias:> q|exit
 
 Disconnect from the datasource and exit your sash session.
 
 =head2 reconnect
 
 Attempt to re-establish a connection to the data source.  This is useful for API based
-plugins where server based valiad sessions tend to expire quite rapidly.
+plugins where server based valid sessions tend to expire quite rapidly.
 
 =head2 result
 
-Describe the concept of a result here.
+The difference between operating as a client to a database and a client to an API
+is mostly the time lag between request and response.  When using the mysql client
+to communicate with the database installed locally the response time is very fast.
+When waiting for the response from and API call you could wait a long time.  Some
+operations using the Salesforce.com API to get 5000 records can take several minutes.
 
-Table of sub-commands is listed below with their descriptions:
+The last thing you want to discover after you finally get your large result set back
+is that you forgot to properly sort the records.  You really don't want to reissue
+the command because again it could take several minutes.
+
+Thankfully I<sash> solves this problem for you by storing (caching) the result of
+any command that is issued to the data source.  The tool allows you to then enter
+sub-commands based on the latest result so that you can quickly manipulate the data
+without having to re-issue a command to the server.
+
+The result command has a number of sub-commands available that are listed below with
+their descriptions:
 
 =head3 all
 
 This displays all of the results that have been obtained and manipulated for the last
 executed command.
 
-=head3 limit [value]
+=head3 limit
+
+I<usage:> limit [value]
 
 Limit the number of records displayed in the current result set to the defined value.
-This is commonly done after a L</result:sort> command.  
+This is commonly done after a L</result>:L</sort> command.  
 
 =head3 redo
 
+This is the logical opposite of the I<undo> sub-command.  If you decide after an
+I<undo> that you really did want the result the way it was you can issue a I<redo>
+to get it back.
+
 =head3 revert
+
+This undoes the series of sub-command operations that have been performed and returns
+the result back to the original value after the command was issued.
 
 =head3 search
 
-=head3 sort [attribute] [asc|desc]
+I<usage:> search [-i] [string]
+
+=head3 sort
+
+I<usage:> sort [[attribute] [asc|desc], [attribute] [asc|desc], ...]
 
 =head3 undo
 
+A typical sequence of L</result> sub-commands is illustrated below:
+
+    sash> result sort LastName desc, FirstName asc
+    ...
+    sash> result limit 20
+
+The above example would produce an ordered result with 20 records displayed. If
+the user were to then L</undo> the previous L</result> operation then the full set
+of ordered records would be displayed.  This illustrates the concept that L</result>
+operations are sequential and operate on the previous result with the first result
+being the output of the command issued to the server.
+
 =head2 set
 
-=head3 output [tabular|vertical|perlval]
+The L</set> command allows on to manipulate basic I<sash> properties.  The following
+table describes the available sub-commands and their options:
+
+=head3 output
+
+I<usage:> output [tabular|vertical|perlval]
 
 =head2 x
 
@@ -220,11 +274,12 @@ SOQL queries and viewing their results served as the birthpoint for I<sash>.
 
 =head2 Sash::Plugin::VerticalResponse
 
-This plugin is for use with the VerticalResponse API L<http://www.verticalresponse.com/services/api>.
+This plugin is for use with the VerticalResponse.com API.  For more information see
+L<http://sash.sourceforge.net>.
 
 =head1 DEVELOPMENT
 
-This section documents the steps that are necessary to create a plugin for I<sash>.
+This section will document the steps that are necessary to create a plugin for I<sash>.
 
 =head1 AUTHOR
 
@@ -232,7 +287,8 @@ Wes Bailey, <wes@verticalresponse.com>
 
 =head1 BUGS
 
-When you find a bug in this plugin please contact the author.
+When you find a bug in this plugin please contact the author.  At the present time
+there are no known bugs.
 
 =head1 DEPENDENCIES
 
@@ -240,24 +296,34 @@ I<sash> is really possible because of these fine modules available on cpan:
 
 =over 4
 
-=item * Term::ShellUI 0.85 L<http://search.cpan.org/~bronson/Term-ShellUI-0.85/lib/Term/ShellUI.pm>
+=item * L<Term::ShellUI> 0.85
 
-=item * Data::Table 1.50 L<http://search.cpan.org/~ezdb/Data-Table-1.50/Table.pm>
+=item * L<Data::Table> 1.50
 
-=item * Text::ASCIITable 0.18 L<http://search.cpan.org/~lunatic/Text-ASCIITable-0.18/lib/Text/ASCIITable.pm>
+=item * L<Text::ASCIITable> 0.18
 
-=item * Term::ReadKey 2.30 L<http://search.cpan.org/~jstowe/TermReadKey-2.30/ReadKey.pm>
+=item * L<Term::ReadKey> 2.30
 
-=item * Time::HiRes 1.86 L<http://search.cpan.org/~jhi/Time-HiRes-1.9707/HiRes.pm>
+=item * L<Time::HiRes> 1.86
 
 =back
 
 =head1 COPYRIGHT
 
-Copyright (C) 2007, Wesley H. Bailey, VerticalResponse Inc.
+Copyright (C) 2007, Wes Bailey, VerticalResponse Inc.
 
-This program is free software.  You may copy or redistribute it under the same
-terms as Perl itself.
+Sash is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+Sash is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 =cut
-

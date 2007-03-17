@@ -3,6 +3,8 @@ package Sash::Plugin::Base;
 use strict;
 use warnings;
 
+our $VERSION = '1.01';
+
 use Carp;
 
 my $_client;

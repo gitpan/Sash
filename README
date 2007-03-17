@@ -1,4 +1,4 @@
-Sash version 1.00
+Sash version 1.01
 =================
 
 Sash is a tool to access common data sources. It was inspired by the many
@@ -11,18 +11,8 @@ INSTALLATION
 To install this module type the following:
 
    perl Makefile.PL
-   make
    make install
    
-The above will install the library that sash uses.  The script is located in:
-
-src/sash
-
-Copy this to whatever standard directory you prefer to use and make it executable:
-
-cp src/sash /usr/local/bin
-chmod 755 /usr/local/bin/sash
-
 To some it might seem odd to not have to run make test but there really is nothing
 to test.  Sash by itself only provides a framework for connecting and communicating
 with various data sources.  You need install the appropriate plugin to work with
@@ -46,8 +36,8 @@ PLUGINS
 
 As of this release there are 2 plugins available:
 
-Salesforce.com API
-VerticalResponse.com API
+Salesforce.com API (http://www.salesforce.com/developer)
+VerticalResponse.com API (http://www.verticalresponse.com/api)
 
 Read the documentation for information on availability and installation.  It
 also has information on how to develop a plugin.
@@ -60,7 +50,7 @@ http://sash.sourceforge.net
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2007 by Wes Bailey
+Copyright (C) 2007 by Wesley H. Bailey, VerticalResponse Inc.
 
 Sash is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
